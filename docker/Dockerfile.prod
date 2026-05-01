@@ -1,0 +1,83 @@
+# syntax=docker/dockerfile:1.7
+# ─────────────────────────────────────────────────────────────────────────────
+# logoscore-backend | LOGOS V5.3 Universal — Dockerfile.prod (Production)
+# 
+# Multi-stage build:
+#   1. deps: instaluj všechny zависимости (dev+prod potrzebne do `npm run build`)
+#   2. builder: kompiluj TypeScript → dist/
+#   3. runtime: distroless, non-root, tylko dist/ + prod node_modules
+#
+# Optymalizacja: 
+#   - Końcowy obraz ~200MB (vs ~800MB z node:20-slim)
+#   - Security: no shell, no npm, no build tools
+#   - Anti-D Shielding: liveness + readiness health checks
+# ─────────────────────────────────────────────────────────────────────────────
+
+ARG NODE_VERSION=20.15.1
+ARG DISTROLESS_TAG=nodejs20-debian12:nonroot
+
+# ── Stage 1: deps (Full install) ────────────────────────────────────────────
+FROM node:${NODE_VERSION}-bookworm-slim AS deps
+
+WORKDIR /app
+ENV NPM_CONFIG_FUND=false NPM_CONFIG_AUDIT=false
+
+COPY package.json package-lock.json ./
+
+RUN --mount=type=cache,target=/root/.npm \
+    npm ci --no-audit --no-fund
+
+
+# ── Stage 2: builder (TypeScript → dist/) ───────────────────────────────────
+FROM node:${NODE_VERSION}-bookworm-slim AS builder
+
+WORKDIR /app
+ENV NPM_CONFIG_FUND=false NPM_CONFIG_AUDIT=false
+
+COPY --from=deps /app/node_modules ./node_modules
+COPY package.json package-lock.json tsconfig.json ./
+COPY src ./src
+COPY prisma ./prisma
+
+# Kompiluj TypeScript
+RUN npx tsc -p tsconfig.json
+
+# Przetnij zależności do produkcji (usunięcie devDependencies)
+RUN --mount=type=cache,target=/root/.npm \
+    npm prune --omit=dev
+
+
+# ── Stage 3: runtime (distroless, non-root) ─────────────────────────────────
+FROM gcr.io/distroless/${DISTROLESS_TAG} AS runtime
+
+WORKDIR /app
+
+# Environment dla produkcji
+ENV NODE_ENV=production \
+    PORT=8080 \
+    HOST=0.0.0.0 \
+    NODE_OPTIONS=--enable-source-maps
+
+# OCI Labels — observability na poziomie obrazu
+LABEL org.opencontainers.image.title="logoscore-backend" \
+    org.opencontainers.image.description="LOGOS V5.3 Universal — backend (LogosCore) | MTAQuestWebsideX" \
+    org.opencontainers.image.source="https://github.com/sobieranskip95patryk/logoscore-backend" \
+    org.opencontainers.image.version="5.3.0" \
+    org.opencontainers.image.vendor="MTAQuestWebsideX"
+
+# Kopiuj tylko niezbędne artefakty z buildera
+COPY --from=builder --chown=nonroot:nonroot /app/node_modules ./node_modules
+COPY --from=builder --chown=nonroot:nonroot /app/dist ./dist
+COPY --from=builder --chown=nonroot:nonroot /app/prisma ./prisma
+
+# Expose port
+EXPOSE 8080
+
+# Health check — liveness probe (proces żyje?)
+HEALTHCHECK --interval=10s --timeout=3s --start-period=10s --retries=3 \
+    CMD ["/nodejs/bin/node", "-e", \
+    "const http = require('http'); http.get('http://localhost:8080/health', (r) => {if (r.statusCode === 200) process.exit(0); process.exit(1);}).on('error', () => process.exit(1));"]
+
+# Entrypoint — startuj backend
+ENTRYPOINT ["/nodejs/bin/node"]
+CMD ["dist/server.js"]

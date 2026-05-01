@@ -1,0 +1,247 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# logoscore-backend | LOGOS V5.3 Universal — docker-compose.prod.yml
+#
+# Production composition:
+#   - Backend (Node.js, 2 vCPU, 1GB RAM)
+#   - PostgreSQL (1 vCPU, 512MB RAM)
+#   - MongoDB (1 vCPU, 512MB RAM)
+#   - Redis (0.5 vCPU, 256MB RAM)
+#
+# Anti-D Shielding: Limity zasobów zapobiegają entropii procesowej.
+# Każdy container ma explicit CPU/memory limits — żaden nie może zagarnąć całej maszyny.
+# ─────────────────────────────────────────────────────────────────────────────
+
+version: '3.9'
+
+services:
+  # ────────────────────────────────────────────────────────────────────────
+  # BACKEND: logoscore-backend (Node.js + Express + Socket.IO)
+  # ────────────────────────────────────────────────────────────────────────
+  backend:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.prod
+      args:
+        NODE_VERSION: "20.15.1"
+    container_name: logoscore-backend
+    restart: unless-stopped
+    
+    # Environment — załaduj z .env.production
+    env_file:
+      - env/.env.production
+    
+    # Portmapping — expose port 8080
+    ports:
+      - "8080:8080"
+    
+    # Anti-D Shielding: Resource Limits
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 1g
+        reservations:
+          cpus: '1.5'
+          memory: 800m
+    
+    # Health checks — dla GCP/Kubernetes
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8080/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+    
+    # Zależności — czekaj aż bazy będą ready
+    depends_on:
+      postgres:
+        condition: service_healthy
+      mongo:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    
+    # Network
+    networks:
+      - logoscore-network
+    
+    # Logging
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # ────────────────────────────────────────────────────────────────────────
+  # POSTGRES: Relacyjny kręgosłup (intent_maps, quests, users, inventory)
+  # ────────────────────────────────────────────────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    container_name: logoscore-postgres
+    restart: unless-stopped
+    
+    environment:
+      POSTGRES_USER: logos
+      POSTGRES_PASSWORD: logos
+      POSTGRES_DB: logoscore
+      POSTGRES_INITDB_ARGS: "-c max_connections=100"
+    
+    # Anti-D Shielding: Resource Limits
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 512m
+        reservations:
+          cpus: '0.8'
+          memory: 400m
+    
+    # Ports — expose tylko lokalnie (docker network)
+    expose:
+      - "5432"
+    
+    # Volume — persistence
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./docker/postgres-init.sql:/docker-entrypoint-initdb.d/00-init.sql:ro
+    
+    # Health check
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U logos -d logoscore"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 10s
+    
+    # Network
+    networks:
+      - logoscore-network
+    
+    # Logging
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "5m"
+        max-file: "2"
+
+  # ────────────────────────────────────────────────────────────────────────
+  # MONGO: Wektorowa pamięć intencji (Living Memory, goals, audit)
+  # ────────────────────────────────────────────────────────────────────────
+  mongo:
+    image: mongo:7
+    container_name: logoscore-mongo
+    restart: unless-stopped
+    
+    command:
+      - "--bind_ip_all"
+      - "--wiredTigerCacheSizeGB=0.4"
+    
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: logos
+      MONGO_INITDB_ROOT_PASSWORD: logos
+      MONGO_INITDB_DATABASE: logoscore_intent
+    
+    # Anti-D Shielding: Resource Limits
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 512m
+        reservations:
+          cpus: '0.8'
+          memory: 400m
+    
+    # Ports — expose tylko lokalnie
+    expose:
+      - "27017"
+    
+    # Volume — persistence
+    volumes:
+      - mongodata:/data/db
+      - mongoconfig:/data/configdb
+    
+    # Health check
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 10s
+    
+    # Network
+    networks:
+      - logoscore-network
+    
+    # Logging
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "5m"
+        max-file: "2"
+
+  # ────────────────────────────────────────────────────────────────────────
+  # REDIS: Synchroniczny puls systemu (rate limiting, cache ekonomizera)
+  # ────────────────────────────────────────────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    container_name: logoscore-redis
+    restart: unless-stopped
+    
+    command: ["redis-server", "--maxmemory", "256m", "--maxmemory-policy", "allkeys-lru"]
+    
+    # Anti-D Shielding: Resource Limits
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256m
+        reservations:
+          cpus: '0.3'
+          memory: 150m
+    
+    # Ports — expose tylko lokalnie
+    expose:
+      - "6379"
+    
+    # Volume — optional persistence
+    volumes:
+      - redisdata:/data
+    
+    # Health check
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 5s
+    
+    # Network
+    networks:
+      - logoscore-network
+    
+    # Logging
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "3m"
+        max-file: "1"
+
+# ─────────────────────────────────────────────────────────────────────────
+# VOLUMES: Persistence
+# ─────────────────────────────────────────────────────────────────────────
+volumes:
+  pgdata:
+    driver: local
+  mongodata:
+    driver: local
+  mongoconfig:
+    driver: local
+  redisdata:
+    driver: local
+
+# ─────────────────────────────────────────────────────────────────────────
+# NETWORKS: Internal communication
+# ─────────────────────────────────────────────────────────────────────────
+networks:
+  logoscore-network:
+    driver: bridge
