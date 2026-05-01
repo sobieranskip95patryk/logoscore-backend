@@ -8,7 +8,7 @@ import { createApp } from './app';
 import { appConfig } from './core/config/app.config';
 import { eventBus } from './core/events/event-bus';
 import { createSocketGateway } from './infrastructure/websocket/socket.gateway';
-import { ensureSchema, pingPostgres } from './infrastructure/database/postgres';
+import { pingPostgres } from './infrastructure/database/postgres';
 import { pingRedis } from './infrastructure/database/redis';
 import { pingMongo, closeMongo } from './infrastructure/database/mongo';
 import { installQuestResolverBridge } from './modules/resolver/application/quest-bridge';
@@ -23,15 +23,14 @@ async function bootstrap() {
   // Best-effort: schemat bazy danych jeśli Postgres skonfigurowany.
   try {
     if (await pingPostgres()) {
-      await ensureSchema();
-      console.log('[postgres] connected, schema ensured');
+      console.log('[postgres] connected');
     } else if (appConfig.databaseUrl) {
       console.warn('[postgres] DATABASE_URL set but ping failed — using in-memory fallback');
     } else {
       console.log('[postgres] no DATABASE_URL — using in-memory storage');
     }
   } catch (e) {
-    console.error('[postgres] schema bootstrap failed:', (e as Error).message);
+    console.error('[postgres] connection check failed:', (e as Error).message);
   }
 
   if (await pingRedis()) {
@@ -48,7 +47,7 @@ async function bootstrap() {
 
   installQuestResolverBridge();
 
-  server.listen(appConfig.port, () => {
+  server.listen(appConfig.port, '0.0.0.0', () => {
     eventBus.publish('system.boot', {
       service: SYSTEM_NAME,
       version: SYSTEM_VERSION,

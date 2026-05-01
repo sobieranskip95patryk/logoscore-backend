@@ -8,6 +8,8 @@ import { initializeFirebase } from './core/config/firebase.config';
 import { registerRoutes } from './routes';
 import { eventBus } from './core/events/event-bus';
 import { errorHandler } from './shared/middleware/error.middleware';
+import { requestIdMiddleware } from './shared/middleware/request-id.middleware';
+import { requestLogger } from './shared/middleware/request-logger.middleware';
 
 /**
  * Production safety guard.
@@ -37,6 +39,8 @@ export function createApp(): Express {
 
   initializeFirebase();
 
+  app.use(requestIdMiddleware);
+  app.use(requestLogger);
   app.use(helmet());
   app.use(cors({ origin: appConfig.corsOrigin, credentials: true }));
   app.use(json({ limit: appConfig.security.bodyLimit }));

@@ -1,13 +1,13 @@
 # syntax=docker/dockerfile:1.7
 # ─────────────────────────────────────────────────────────────────────────────
 # logoscore-backend | LOGOS V5.3 Universal — Dockerfile.prod (Production)
-# 
+#
 # Multi-stage build:
 #   1. deps: instaluj všechny zависимости (dev+prod potrzebne do `npm run build`)
 #   2. builder: kompiluj TypeScript → dist/
 #   3. runtime: distroless, non-root, tylko dist/ + prod node_modules
 #
-# Optymalizacja: 
+# Optymalizacja:
 #   - Końcowy obraz ~200MB (vs ~800MB z node:20-slim)
 #   - Security: no shell, no npm, no build tools
 #   - Anti-D Shielding: liveness + readiness health checks
@@ -37,7 +37,6 @@ ENV NPM_CONFIG_FUND=false NPM_CONFIG_AUDIT=false
 COPY --from=deps /app/node_modules ./node_modules
 COPY package.json package-lock.json tsconfig.json ./
 COPY src ./src
-COPY prisma ./prisma
 
 # Kompiluj TypeScript
 RUN npx tsc -p tsconfig.json
@@ -68,7 +67,6 @@ LABEL org.opencontainers.image.title="logoscore-backend" \
 # Kopiuj tylko niezbędne artefakty z buildera
 COPY --from=builder --chown=nonroot:nonroot /app/node_modules ./node_modules
 COPY --from=builder --chown=nonroot:nonroot /app/dist ./dist
-COPY --from=builder --chown=nonroot:nonroot /app/prisma ./prisma
 
 # Expose port
 EXPOSE 8080

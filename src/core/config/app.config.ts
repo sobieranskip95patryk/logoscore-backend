@@ -8,8 +8,8 @@ dotenv.config({ path: path.resolve(process.cwd(), envFile) });
 
 export const appConfig = {
   env: process.env.NODE_ENV || 'development',
-  port: Number(process.env.PORT || 3000),
-  corsOrigin: process.env.CORS_ORIGIN || '*',
+  port: Number(process.env.PORT || 8080),
+  corsOrigin: process.env.CORS_ORIGIN || (process.env.NODE_ENV === 'production' ? '' : '*'),
 
   databaseUrl: process.env.DATABASE_URL || '',
   mongoUrl: process.env.MONGO_URL || '',
@@ -24,7 +24,7 @@ export const appConfig = {
 
   memoryBackend: (process.env.MEMORY_BACKEND || 'auto').toLowerCase() as 'auto' | 'mongo' | 'postgres' | 'memory',
 
-  allowAnonymous: (process.env.ALLOW_ANONYMOUS || 'true').toLowerCase() === 'true',
+  allowAnonymous: (process.env.ALLOW_ANONYMOUS || 'false').toLowerCase() === 'true',
 
   auth: {
     /**

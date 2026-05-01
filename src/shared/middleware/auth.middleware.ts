@@ -49,7 +49,13 @@ export async function firebaseAuthMiddleware(
 
   const auth = firebaseAuth();
   if (!auth) {
-    // Soft mode — używamy tokenu jako pseudo-uid, żeby frontend mógł grać.
+    if (appConfig.env === 'production') {
+      res.status(500).json({
+        error: 'firebase_auth_not_configured',
+        detail: 'Firebase Admin must be configured in production.'
+      });
+      return;
+    }
     const uid = token.slice(0, 64);
     req.user = { uid, anonymous: true, role: resolveRole(uid, true) };
     return next();
