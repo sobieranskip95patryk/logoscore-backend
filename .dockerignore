@@ -1,0 +1,54 @@
+# ── Sprint XII — twardy .dockerignore ───────────────────────────────────────
+# Cel: minimalny build context = szybszy build + brak sekretów w warstwie.
+# ──────────────────────────────────────────────────────────────────────────
+
+# VCS i meta
+.git
+.gitignore
+.github
+.vscode
+.idea
+
+# Dokumentacja i raporty (nie trafiają do runtime)
+*.md
+raport*.md
+README*
+LOGOS*.html
+instrukcja*.md
+
+# Artefakty buildu / testów
+dist
+build
+coverage
+.nyc_output
+*.log
+*.tsbuildinfo
+
+# Zależności (instalowane od zera w obrazie)
+node_modules
+
+# Dev-only / kompozycje
+docker-compose.yml
+docker/Dockerfile.dev
+docker/nginx.conf
+docker/postgres-init.sql
+
+# Środowisko i sekrety — NIGDY nie do warstwy
+.env
+.env.*
+env/
+firebase-service-account.json
+*.key
+*.pem
+*.p12
+secrets/
+
+# Edytor / OS
+.DS_Store
+Thumbs.db
+*.swp
+
+# Test artefakty (nie kopiowane do warstwy runtime)
+tests
+jest.config.js
+.eslintrc.json

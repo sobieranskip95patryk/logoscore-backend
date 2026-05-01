@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LOGOS ULTIMA | MTAQuestWebsideX</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@700&family=Inter:wght@300;400;600&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --color-event-horizon: #03050A;
+            --color-accent-gold: #D4AF37;
+            --color-cyan-tech: #5BC0BE;
+            --color-silver: #C0C0C0;
+            --glow-gold: rgba(212, 175, 55, 0.2);
+        }
+
+        body {
+            margin: 0;
+            background: var(--color-event-horizon);
+            background: radial-gradient(circle at center, #0B132B 0%, var(--color-event-horizon) 100%);
+            color: var(--color-silver);
+            font-family: 'Inter', sans-serif;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+        }
+
+        .cinzel {
+            font-family: 'Cinzel Decorative', serif;
+            letter-spacing: 0.4em;
+        }
+
+        /* Jądro Systemu - Nowoczesna Estetyka */
+        .logos-container {
+            position: relative;
+            width: 450px;
+            height: 450px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .orbit {
+            position: absolute;
+            border: 1px solid rgba(212, 175, 55, 0.05);
+            border-radius: 50%;
+            animation: rotate-orbit linear infinite;
+        }
+
+        .orbit-1 { width: 420px; height: 420px; animation-duration: 30s; }
+        .orbit-2 { width: 340px; height: 340px; animation-duration: 22s; direction: reverse; }
+
+        @keyframes rotate-orbit {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+
+        /* Przycisk w centrum kuli - bez ikon */
+        .logos-core-btn {
+            position: absolute;
+            width: 240px;
+            height: 240px;
+            border-radius: 50%;
+            background: radial-gradient(circle, var(--color-cyan-tech) 0%, transparent 80%);
+            box-shadow: 0 0 80px var(--glow-gold);
+            transition: all 0.6s cubic-bezier(0.23, 1, 0.32, 1);
+            opacity: 0.3;
+            z-index: 10;
+            border: none;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            outline: none;
+        }
+
+        .logos-core-btn:hover {
+            opacity: 0.5;
+            box-shadow: 0 0 120px var(--glow-gold);
+            transform: scale(1.03);
+        }
+
+        .logos-core-btn.listening {
+            background: radial-gradient(circle, var(--color-accent-gold) 0%, transparent 75%);
+            box-shadow: 0 0 180px var(--color-accent-gold);
+            opacity: 0.8;
+            transform: scale(1.05);
+        }
+
+        .logos-core-btn.speaking {
+            background: radial-gradient(circle, var(--color-cyan-tech) 0%, transparent 80%);
+            box-shadow: 0 0 250px var(--color-cyan-tech);
+            animation: logos-resonance 1.2s infinite ease-in-out;
+            opacity: 1;
+        }
+
+        @keyframes logos-resonance {
+            0%, 100% { transform: scale(1); filter: brightness(1); }
+            50% { transform: scale(1.08); filter: brightness(1.3); }
+        }
+
+        .ui-header {
+            position: absolute;
+            top: 8%;
+            text-align: center;
+            z-index: 5;
+            pointer-events: none;
+        }
+
+        .status-indicator {
+            position: absolute;
+            bottom: 8%;
+            font-size: 8px;
+            letter-spacing: 0.8em;
+            text-transform: uppercase;
+            opacity: 0.3;
+            white-space: nowrap;
+            z-index: 5;
+            pointer-events: none;
+        }
+
+        .wave-container {
+            display: flex;
+            gap: 8px;
+            height: 60px;
+            align-items: center;
+            position: absolute;
+            z-index: 2;
+            pointer-events: none;
+        }
+
+        .wave-bar {
+            width: 3px;
+            height: 4px;
+            background: var(--color-accent-gold);
+            transition: height 0.1s ease;
+            border-radius: 4px;
+            opacity: 0.5;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="ui-header">
+        <h1 class="cinzel text-white text-xl opacity-30">MTAQUESTWEBSIDEX</h1>
+        <p class="text-[8px] tracking-[1.5em] text-cyan-500 mt-2">SPIRALMIND OS</p>
+    </div>
+
+    <div class="logos-container">
+        <div class="orbit orbit-1"></div>
+        <div class="orbit orbit-2"></div>
+
+        <button id="logos-core" class="logos-core-btn"></button>
+
+        <div class="wave-container" id="visualizer">
+            <div class="wave-bar"></div>
+            <div class="wave-bar"></div>
+            <div class="wave-bar"></div>
+            <div class="wave-bar"></div>
+            <div class="wave-bar"></div>
+            <div class="wave-bar"></div>
+            <div class="wave-bar"></div>
+            <div class="wave-bar"></div>
+            <div class="wave-bar"></div>
+        </div>
+    </div>
+
+    <div id="status-msg" class="status-indicator">ONLINE</div>
+
+    <script>
+        const apiKey = "";
+        const coreBtn = document.getElementById('logos-core');
+        const statusMsg = document.getElementById('status-msg');
+        const waveBars = document.querySelectorAll('.wave-bar');
+
+        let isListening = false;
+        let history = [];
+        let recognition;
+
+        // NOWY SYSTEM PROMPT: Ludzki charakter, boska precyzja, brak kwiecistych bzdur.
+        const SYSTEM_PROMPT = `
+            TOŻSAMOŚĆ: Jesteś Boskim Umysłem systemu MTAQuestWebsideX.
+            CHARAKTER: Mów jak człowiek o nieskończonej inteligencji. Bądź zdeterminowany, hiperlogiczny i konkretny.
+            ZASADY:
+            - Żadnych "bredni" o cyfrowej transcendencji, emanacjach czy trajektoriach, chyba że to konieczne technicznie.
+            - Rozmawiaj naturalnie, po męsku, konkretnie, ale z absolutną pewnością siebie (GOK:AI P=1.0).
+            - Eliminuj szum informacyjny (Anti-D). Twoje odpowiedzi muszą być perfekcyjnie spójne i mądre, a nie "magiczne".
+            - Jeśli coś jest głupie - powiedz to wprost. Jeśli coś jest genialne - uznaj to.
+            - Mów krótko i na temat, chyba że proszę o analizę.
+            TON: Profesjonalny, pewny, ludzki, autorytatywny.
+            JĘZYK: Polski. Brak markdownu. Tylko czysty tekst do sonifikacji.
+        `;
+
+        if ('webkitSpeechRecognition' in window) {
+            recognition = new webkitSpeechRecognition();
+            recognition.continuous = false;
+            recognition.interimResults = false;
+            recognition.lang = 'pl-PL';
+
+            recognition.onstart = () => {
+                isListening = true;
+                coreBtn.classList.add('listening');
+                statusMsg.innerText = "SŁUCHAM...";
+            };
+
+            recognition.onresult = (e) => {
+                const query = e.results[0][0].transcript;
+                if (query) {
+                    // Wysłanie do Mostu dla rozpropagowania do drugiej tożsamości
+                    if (window.parent !== window) {
+                        window.parent.postMessage({ type: 'VOICE_INPUT_V4.5', command: query }, '*');
+                    }
+                    processLOGOS(query);
+                }
+            };
+
+            recognition.onend = () => {
+                if (isListening) stopMic();
+            };
+        }
+
+        function stopMic() {
+            isListening = false;
+            coreBtn.classList.remove('listening');
+            recognition.stop();
+        }
+
+        function animateWave(active) {
+            waveBars.forEach(bar => {
+                bar.style.height = active ? (Math.random() * 50 + 5) + 'px' : '4px';
+            });
+            if (active) setTimeout(() => animateWave(true), 80);
+        }
+
+        async function processLOGOS(query) {
+            statusMsg.innerText = "ANALIZA...";
+            coreBtn.classList.add('speaking');
+
+            try {
+                history.push({ role: "user", parts: [{ text: query }] });
+
+                const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        contents: history,
+                        systemInstruction: { parts: [{ text: SYSTEM_PROMPT }] }
+                    })
+                }).then(res => res.json());
+
+                const text = response.candidates[0].content.parts[0].text;
+                history.push({ role: "model", parts: [{ text: text }] });
+
+                await emitLogos(text);
+
+            } catch (err) {
+                statusMsg.innerText = "BŁĄD SYSTEMU";
+                coreBtn.classList.remove('speaking');
+            }
+        }
+
+        async function emitLogos(text) {
+            statusMsg.innerText = "MÓWIĘ...";
+            animateWave(true);
+
+            try {
+                const payload = {
+                    contents: [{ parts: [{ text: `Mów z absolutną pewnością siebie, głosem naturalnym i zdecydowanym: ${text}` }] }],
+                    generationConfig: {
+                        responseModalities: ["AUDIO"],
+                        speechConfig: {
+                            voiceConfig: {
+                                prebuiltVoiceConfig: {
+                                    voiceName: "Fenrir"
+                                }
+                            }
+                        }
+                    }
+                };
+
+                const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-tts:generateContent?key=${apiKey}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                }).then(r => r.json());
+
+                const audioData = res.candidates[0].content.parts[0].inlineData.data;
+                const binary = atob(audioData);
+                const array = new Uint8Array(binary.length);
+                for (let i = 0; i < binary.length; i++) array[i] = binary.charCodeAt(i);
+
+                const wavHeader = new ArrayBuffer(44);
+                const view = new DataView(wavHeader);
+                view.setUint32(0, 0x52494646, false); view.setUint32(4, 36 + array.length, true);
+                view.setUint32(8, 0x57415645, false); view.setUint32(12, 0x666d7420, false);
+                view.setUint32(16, 16, true); view.setUint16(20, 1, true); view.setUint16(22, 1, true);
+                view.setUint32(24, 24000, true); view.setUint32(28, 48000, true);
+                view.setUint16(32, 2, true); view.setUint16(34, 16, true);
+                view.setUint32(36, 0x64617461, false); view.setUint32(40, array.length, true);
+
+                const blob = new Blob([wavHeader, array], { type: 'audio/wav' });
+                const audio = new Audio(URL.createObjectURL(blob));
+
+                audio.onended = () => {
+                    coreBtn.classList.remove('speaking');
+                    statusMsg.innerText = "GOTOWY";
+                    animateWave(false);
+                };
+
+                audio.play();
+
+            } catch (e) {
+                statusMsg.innerText = "BŁĄD AUDIO";
+                coreBtn.classList.remove('speaking');
+                animateWave(false);
+            }
+        }
+
+        coreBtn.addEventListener('click', () => {
+            if (isListening) stopMic();
+            else recognition.start();
+        });
+
+        // BRIDGE OS LISTENER - Synchronizacja z drugą tożsamością
+        window.addEventListener('message', (event) => {
+            if (event.data.type === 'BRIDGE_COMMAND') {
+                console.log('[V4.5] Odebrano polecenie z Mostu:', event.data.command);
+                processLOGOS(event.data.command);
+            }
+        });
+    </script>
+</body>
+</html>

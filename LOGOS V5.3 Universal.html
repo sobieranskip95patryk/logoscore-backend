@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LOGOS V5.3 | Universal Perception | MTAQuestWebsideX</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@700&family=Inter:wght@300;400;600&display=swap" rel="stylesheet">
+
+    <!-- Firebase SDK -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+
+        const firebaseConfig = JSON.parse(__firebase_config);
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+
+        window.LOGOS_AUTH = { auth };
+    </script>
+
+    <style>
+        :root {
+            --color-bg: #03050A;
+            --color-gold: #D4AF37;
+            --color-tech: #5BC0BE;
+            --glow: rgba(212, 175, 55, 0.15);
+        }
+
+        body {
+            margin: 0;
+            background: radial-gradient(circle at center, #0B132B 0%, var(--color-bg) 100%);
+            color: #C0C0C0;
+            font-family: 'Inter', sans-serif;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            transition: background 0.3s ease;
+        }
+
+        body.drag-active {
+            background: radial-gradient(circle at center, #1C2541 0%, var(--color-bg) 100%);
+            cursor: copy;
+        }
+
+        .cinzel { font-family: 'Cinzel Decorative', serif; letter-spacing: 0.3em; }
+
+        .logos-container {
+            position: relative;
+            width: 500px;
+            height: 500px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .orbit {
+            position: absolute;
+            border: 1px solid rgba(212, 175, 55, 0.03);
+            border-radius: 50%;
+            animation: rotate linear infinite;
+        }
+        .orbit-1 { width: 480px; height: 480px; animation-duration: 45s; }
+        .orbit-2 { width: 360px; height: 360px; animation-duration: 30s; direction: reverse; }
+
+        @keyframes rotate { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+
+        .logos-core-btn {
+            position: absolute;
+            width: 280px;
+            height: 280px;
+            border-radius: 50%;
+            background: radial-gradient(circle, var(--color-tech) 0%, transparent 75%);
+            box-shadow: 0 0 100px var(--glow);
+            transition: all 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+            opacity: 0.2;
+            z-index: 10;
+            border: none;
+            cursor: pointer;
+            outline: none;
+        }
+
+        .logos-core-btn.listening {
+            background: radial-gradient(circle, var(--color-gold) 0%, transparent 70%);
+            box-shadow: 0 0 180px var(--color-gold);
+            opacity: 0.7;
+        }
+
+        .logos-core-btn.speaking {
+            background: radial-gradient(circle, var(--color-tech) 0%, transparent 70%);
+            box-shadow: 0 0 250px var(--color-tech);
+            animation: pulse 1.2s infinite ease-in-out;
+            opacity: 1;
+        }
+
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); filter: brightness(1); }
+            50% { transform: scale(1.08); filter: brightness(1.3); }
+        }
+
+        .status-text {
+            position: absolute;
+            bottom: 8%;
+            font-size: 8px;
+            letter-spacing: 1.2em;
+            text-transform: uppercase;
+            opacity: 0.3;
+            pointer-events: none;
+            text-align: center;
+        }
+
+        .wave-bar {
+            width: 2px;
+            height: 4px;
+            background: var(--color-gold);
+            transition: height 0.1s ease;
+        }
+
+        .drop-zone-overlay {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            z-index: 100;
+            display: none;
+            border: 4px dashed var(--color-gold);
+            background: rgba(212, 175, 55, 0.05);
+            pointer-events: none;
+            align-items: center;
+            justify-content: center;
+        }
+
+        body.drag-active .drop-zone-overlay { display: flex; }
+    </style>
+</head>
+<body id="main-body">
+
+    <div class="drop-zone-overlay">
+        <div class="text-gold cinzel text-xl opacity-50">PODAJ MATERIAŁ DO ANALIZY</div>
+    </div>
+
+    <div class="absolute top-12 text-center pointer-events-none">
+        <h1 class="cinzel text-white text-2xl opacity-30">MTAQUESTWEBSIDEX</h1>
+        <p id="brain-id" class="text-[7px] tracking-[2em] text-cyan-400 mt-4 uppercase">System Percepcji: Aktywny</p>
+    </div>
+
+    <div class="logos-container">
+        <div class="orbit orbit-1"></div>
+        <div class="orbit orbit-2"></div>
+        <button id="logos-core" class="logos-core-btn" title="Aktywuj LOGOS"></button>
+        <div class="flex gap-2 absolute pointer-events-none items-center" id="wave-box">
+            <div class="wave-bar"></div><div class="wave-bar"></div><div class="wave-bar"></div>
+            <div class="wave-bar"></div><div class="wave-bar"></div><div class="wave-bar"></div>
+            <div class="wave-bar"></div><div class="wave-bar"></div><div class="wave-bar"></div>
+        </div>
+    </div>
+
+    <div id="status-label" class="status-text">Przeciągnij plik lub dotknij jądra</div>
+
+    <script type="module">
+        import { signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+
+        const BACKEND_URL = "http://localhost:3000/api";
+        const coreBtn = document.getElementById('logos-core');
+        const statusLabel = document.getElementById('status-label');
+        const brainId = document.getElementById('brain-id');
+        const waveBars = document.querySelectorAll('.wave-bar');
+        const mainBody = document.getElementById('main-body');
+
+        let user = null;
+        let userToken = null;
+        let isListening = false;
+        let intentMap = "POCZĄTEK MAPOWANIA WIZJI";
+        let recognition;
+
+        const init = async () => {
+            const { auth } = window.LOGOS_AUTH;
+            await signInAnonymously(auth);
+            onAuthStateChanged(auth, async (u) => {
+                if (u) {
+                    user = u;
+                    userToken = await u.getIdToken();
+                    await hydrateIntentMap(u.uid);
+                    brainId.innerText = `LINK AKTYWNY | PERCEPCJA UNIWERSALNA`;
+                    statusLabel.innerText = "Koherencja P=1.0 Gotowa";
+                }
+            });
+        };
+
+        const authHeaders = () => ({
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${userToken}`
+        });
+
+        const hydrateIntentMap = async (uid) => {
+            try {
+                const response = await fetch(`${BACKEND_URL}/memory/intent-map?sessionId=${uid}`, {
+                    headers: { 'Authorization': `Bearer ${userToken}` }
+                });
+                if (!response.ok) return;
+                const payload = await response.json();
+                intentMap = payload.map || intentMap;
+            } catch (error) {
+                console.error('Intent map fetch failed:', error);
+            }
+        };
+
+        const updateIntentMap = async (newIntent) => {
+            if (!user || !userToken) return;
+
+            try {
+                const response = await fetch(`${BACKEND_URL}/memory/intent-map/update`, {
+                    method: 'POST',
+                    headers: authHeaders(),
+                    body: JSON.stringify({
+                        newIntent,
+                        sessionId: user.uid,
+                    }),
+                });
+
+                if (response.ok) {
+                    intentMap += " -> " + newIntent;
+                }
+            } catch (error) {
+                console.error('Intent map update failed:', error);
+            }
+        };
+
+        // --- OBSŁUGA PLIKÓW (DRAG & DROP) ---
+        mainBody.addEventListener('dragover', (e) => { e.preventDefault(); mainBody.classList.add('drag-active'); });
+        mainBody.addEventListener('dragleave', () => { mainBody.classList.remove('drag-active'); });
+        mainBody.addEventListener('drop', async (e) => {
+            e.preventDefault();
+            mainBody.classList.remove('drag-active');
+            const file = e.dataTransfer.files[0];
+            if (file) handleFileInhalation(file);
+        });
+
+        async function handleFileInhalation(file) {
+            statusLabel.innerText = `INHALACJA PLIKU: ${file.name}`;
+
+            if (file.type.startsWith('image/')) {
+                const reader = new FileReader();
+                reader.onload = (e) => execute(`Przeanalizuj ten obraz jako fragment mojej wizji.`, e.target.result.split(',')[1], file.type || 'image/png');
+                reader.readAsDataURL(file);
+            } else {
+                const text = await file.text();
+                execute(`Wchłoń ten dokument i skorelował go z moją mapą intencji. Zawartość pliku ${file.name}: \n\n ${text.substring(0, 10000)}`);
+            }
+        }
+
+        // --- GŁOS I ANALIZA ---
+        if ('webkitSpeechRecognition' in window) {
+            recognition = new webkitSpeechRecognition();
+            recognition.lang = 'pl-PL';
+            recognition.onstart = () => { isListening = true; coreBtn.classList.add('listening'); statusLabel.innerText = "Słucham Twojej woli..."; };
+            recognition.onresult = (e) => {
+                if (e.results[0].isFinal) {
+                    const query = e.results[0][0].transcript;
+                    // Wysłanie do Mostu dla rozpropagowania do drugiej tożsamości
+                    if (window.parent !== window) {
+                        window.parent.postMessage({ type: 'VOICE_INPUT_V5.3', command: query }, '*');
+                    }
+                    execute(query);
+                }
+            };
+            recognition.onend = () => { if (isListening) stop(); };
+        }
+
+        function stop() { isListening = false; coreBtn.classList.remove('listening'); recognition.stop(); }
+
+        async function execute(query, imageData = null, imageMimeType = null) {
+            if (!user || !userToken) {
+                statusLabel.innerText = "BRAK SESJI";
+                return;
+            }
+
+            statusLabel.innerText = "DEKONSTRUKCJA LOGICZNA...";
+            coreBtn.classList.add('speaking');
+
+            try {
+                const response = await fetch(`${BACKEND_URL}/logos/analyze`, {
+                    method: 'POST',
+                    headers: authHeaders(),
+                    body: JSON.stringify({
+                        query,
+                        sessionId: user.uid,
+                        imageData: imageData || undefined,
+                        imageMimeType: imageMimeType || undefined,
+                    })
+                });
+
+                if (!response.ok) throw new Error(`Analyze failed: ${response.status}`);
+                const data = await response.json();
+                const text = data.text;
+                if (query.length > 30) await updateIntentMap(query.substring(0, 100));
+                await speak(text);
+            } catch (err) {
+                console.error(err);
+                statusLabel.innerText = "BŁĄD DEKODOWANIA";
+                coreBtn.classList.remove('speaking');
+            }
+        }
+
+        async function speak(text) {
+            if (!user || !userToken) {
+                statusLabel.innerText = "BRAK SESJI";
+                return;
+            }
+
+            statusLabel.innerText = "LOGOS EMITUJE...";
+            const intv = setInterval(() => waveBars.forEach(b => b.style.height = (Math.random()*50+5)+'px'), 70);
+
+            try {
+                const res = await fetch(`${BACKEND_URL}/logos/synthesize`, {
+                    method: 'POST',
+                    headers: authHeaders(),
+                    body: JSON.stringify({
+                        text,
+                        sessionId: user.uid,
+                        voiceName: 'Fenrir'
+                    })
+                });
+
+                if (!res.ok) throw new Error(`TTS failed: ${res.status}`);
+                const payload = await res.json();
+
+                const audioData = payload.audioBase64;
+                const binary = atob(audioData);
+                const array = new Uint8Array(binary.length);
+                for (let i = 0; i < binary.length; i++) array[i] = binary.charCodeAt(i);
+
+                const wavHeader = new ArrayBuffer(44);
+                const view = new DataView(wavHeader);
+                view.setUint32(0, 0x52494646, false); view.setUint32(4, 36 + array.length, true);
+                view.setUint32(8, 0x57415645, false); view.setUint32(12, 0x666d7420, false);
+                view.setUint32(16, 16, true); view.setUint16(20, 1, true); view.setUint16(22, 1, true);
+                view.setUint32(24, 24000, true); view.setUint32(28, 48000, true);
+                view.setUint16(32, 2, true); view.setUint16(34, 16, true);
+                view.setUint32(36, 0x64617461, false); view.setUint32(40, array.length, true);
+
+                const audio = new Audio(URL.createObjectURL(new Blob([wavHeader, array], { type: 'audio/wav' })));
+                audio.onended = () => {
+                    clearInterval(intv);
+                    waveBars.forEach(b => b.style.height = '4px');
+                    coreBtn.classList.remove('speaking');
+                    statusLabel.innerText = "System Nasycony. Czekam.";
+                };
+                audio.play();
+            } catch (e) {
+                clearInterval(intv);
+                coreBtn.classList.remove('speaking');
+            }
+        }
+
+        coreBtn.addEventListener('click', () => isListening ? stop() : recognition.start());
+
+        // BRIDGE OS LISTENER - Synchronizacja z drugą tożsamością
+        window.addEventListener('message', (event) => {
+            if (event.data.type === 'BRIDGE_COMMAND') {
+                console.log('[V5.3] Odebrano polecenie z Mostu:', event.data.command);
+                execute(event.data.command);
+            }
+        });
+
+        window.onload = init;
+    </script>
+</body>
+</html>

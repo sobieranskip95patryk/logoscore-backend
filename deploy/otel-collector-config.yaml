@@ -1,0 +1,71 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# Sprint XII — OpenTelemetry Collector sidecar config (mount: /etc/otel/config.yaml)
+#
+# Pipeline:
+#   OTLP/HTTP (4318) → batch + memory_limiter → Google Cloud Trace
+#                                            → Google Cloud Monitoring
+#                                            → debug (optional, log z Cloud Run)
+# ─────────────────────────────────────────────────────────────────────────────
+
+receivers:
+  otlp:
+    protocols:
+      http:
+        endpoint: 0.0.0.0:4318
+      grpc:
+        endpoint: 0.0.0.0:4317
+
+processors:
+  # Ograniczenie pamięci sidecaru — twardy limit 80% z 256Mi.
+  memory_limiter:
+    check_interval: 5s
+    limit_percentage: 80
+    spike_limit_percentage: 25
+
+  # Batchowanie spanów dla taniego ingest.
+  batch:
+    send_batch_size: 256
+    timeout: 10s
+
+  # Wzbogacenie atrybutów resource (Cloud Run injects K_SERVICE/K_REVISION).
+  resource:
+    attributes:
+      - key: deployment.environment
+        value: production
+        action: upsert
+      - key: service.namespace
+        value: logoscore
+        action: upsert
+
+exporters:
+  # Cloud Trace — autoryzacja przez Workload Identity SA przypiętego do Cloud Run.
+  googlecloud:
+    project: ""        # auto-detect z metadata server
+    trace:
+      endpoint: cloudtrace.googleapis.com:443
+    metric:
+      prefix: custom.googleapis.com/logoscore
+      skip_create_descriptor: false
+
+  # Debug exporter — opcjonalnie odkomentuj do troubleshootingu.
+  # debug:
+  #   verbosity: basic
+
+extensions:
+  health_check:
+    endpoint: 0.0.0.0:13133
+
+service:
+  extensions: [health_check]
+  telemetry:
+    logs:
+      level: info
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [memory_limiter, resource, batch]
+      exporters: [googlecloud]
+    metrics:
+      receivers: [otlp]
+      processors: [memory_limiter, resource, batch]
+      exporters: [googlecloud]

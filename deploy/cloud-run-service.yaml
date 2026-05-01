@@ -1,0 +1,139 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# Sprint XII — Cloud Run service spec (Knative serving v1).
+#
+# Atomowy `gcloud run services replace`. Substytucje __PLACEHOLDERS__ są
+# wypełniane przez deploy/cloudbuild.yaml (sed) lub deploy script.
+#
+# Kontrakty:
+#   • liveness  → /api/health   (zawsze 200, brak deep-probe)
+#   • readiness → /api/ready    (deep-probe Postgres+Mongo, 503 gdy down)
+#   • PORT=8080 (kontener słucha na 8080; Cloud Run injects PORT)
+#   • SA = __CLOUD_RUN_SA__ z roles/cloudtrace.agent + secretmanager.secretAccessor
+#   • Sekrety przez Secret Manager (envFrom/secretKeyRef) — nigdy w warstwie.
+# ─────────────────────────────────────────────────────────────────────────────
+
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: __SERVICE__
+  labels:
+    cloud.googleapis.com/location: __REGION__
+    app: logoscore-backend
+    component: backend
+  annotations:
+    run.googleapis.com/launch-stage: GA
+    run.googleapis.com/ingress: all
+    run.googleapis.com/description: "LOGOS V5.3 Universal — backend (LogosCore)"
+spec:
+  template:
+    metadata:
+      annotations:
+        # Wykonanie generacji 2 (gVisor sandbox v2, lepszy startup).
+        run.googleapis.com/execution-environment: gen2
+        # CPU jest naliczane tylko podczas requestu (oszczędność).
+        run.googleapis.com/cpu-throttling: "true"
+        # Skalowanie: 0..10 instancji (single-instance economizer kompatybilne).
+        autoscaling.knative.dev/minScale: "0"
+        autoscaling.knative.dev/maxScale: "10"
+        # Concurrency per instancja (Express jest async, ~80 to bezpieczne).
+        run.googleapis.com/startup-cpu-boost: "true"
+    spec:
+      serviceAccountName: __CLOUD_RUN_SA__
+      timeoutSeconds: 60
+      containerConcurrency: 80
+      containers:
+        - name: app
+          image: __IMAGE__
+          ports:
+            - name: http1
+              containerPort: 8080
+          resources:
+            limits:
+              cpu: "1000m"
+              memory: "512Mi"
+          env:
+            - name: NODE_ENV
+              value: production
+            - name: PORT
+              value: "8080"
+            - name: SERVICE_NAME
+              value: logoscore-backend
+            - name: SERVICE_VERSION
+              value: "5.3.0"
+            - name: DEPLOYMENT_ENVIRONMENT
+              value: production
+            # Sprint XI — Observability Mesh (OTLP do sidecar collector).
+            - name: TELEMETRY_ENABLED
+              value: "true"
+            - name: OTEL_EXPORTER_OTLP_ENDPOINT
+              value: http://localhost:4318
+            - name: OTEL_SERVICE_NAME
+              value: logoscore-backend
+            - name: OTEL_SAMPLE_RATE
+              value: "0.25"
+            # Sekrety — Secret Manager bindings (klucze tworzone przez deploy/README.md).
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: logoscore-database-url
+                  key: latest
+            - name: MONGO_URL
+              valueFrom:
+                secretKeyRef:
+                  name: logoscore-mongo-url
+                  key: latest
+            - name: REDIS_URL
+              valueFrom:
+                secretKeyRef:
+                  name: logoscore-redis-url
+                  key: latest
+            - name: GEMINI_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: logoscore-gemini-api-key
+                  key: latest
+          startupProbe:
+            httpGet:
+              path: /api/health
+              port: 8080
+            initialDelaySeconds: 0
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 6
+          livenessProbe:
+            httpGet:
+              path: /api/health
+              port: 8080
+            periodSeconds: 30
+            timeoutSeconds: 3
+            failureThreshold: 3
+          # Knative serving v1 nie ma readinessProbe per-container (Cloud Run
+          # używa wewnętrznej routing readiness). Używamy /api/ready dla LB
+          # zewnętrznego (Cloud Load Balancer Backend Service health check).
+
+        # ── Sidecar: OpenTelemetry Collector (lokalne 4318 OTLP/HTTP) ────────
+        - name: otel-collector
+          image: otel/opentelemetry-collector-contrib:0.103.0
+          args: ["--config=/etc/otel/config.yaml"]
+          resources:
+            limits:
+              cpu: "200m"
+              memory: "256Mi"
+          ports:
+            - containerPort: 4318
+          volumeMounts:
+            - name: otel-config
+              mountPath: /etc/otel
+              readOnly: true
+
+      volumes:
+        - name: otel-config
+          configMap:
+            name: otel-collector-config
+            items:
+              - key: config.yaml
+                path: config.yaml
+
+  traffic:
+    - percent: 100
+      latestRevision: true

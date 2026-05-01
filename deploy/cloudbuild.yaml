@@ -1,0 +1,102 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# Sprint XII — Cloud Build pipeline dla logoscore-backend
+#
+# Trigger: push do main / tag release.
+# Etapy:
+#   1. typecheck   (npx tsc --noEmit)
+#   2. test        (npx jest --colors=false --runInBand)
+#   3. docker-build  (multi-stage distroless → Artifact Registry)
+#   4. docker-push   (z cache hint)
+#   5. deploy        (Cloud Run service replace YAML — atomowo)
+#
+# Substytucje wymagane przy uruchomieniu (lub w trigger config):
+#   _REGION                = europe-central2
+#   _AR_REPO               = logoscore
+#   _SERVICE               = logoscore-backend
+#   _CLOUD_RUN_SA          = logoscore-runtime@PROJECT.iam.gserviceaccount.com
+# ─────────────────────────────────────────────────────────────────────────────
+
+substitutions:
+  _REGION: europe-central2
+  _AR_REPO: logoscore
+  _SERVICE: logoscore-backend
+  _CLOUD_RUN_SA: ''       # MUSI być nadpisane w trigger config
+  _IMAGE: '${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_AR_REPO}/${_SERVICE}'
+
+options:
+  logging: CLOUD_LOGGING_ONLY
+  machineType: E2_HIGHCPU_8
+  dynamic_substitutions: true
+
+steps:
+
+  # 1 — Type-check (bramka B Build Health, nr 1)
+  - id: typecheck
+    name: node:20-bookworm-slim
+    entrypoint: bash
+    args:
+      - -ceu
+      - |
+        npm ci --no-audit --no-fund
+        npx tsc --noEmit
+
+  # 2 — Jest (bramka B Build Health, nr 2)
+  - id: test
+    name: node:20-bookworm-slim
+    entrypoint: bash
+    waitFor: ['typecheck']
+    args:
+      - -ceu
+      - |
+        npx jest --colors=false --runInBand
+
+  # 3 — Build (multi-stage distroless)
+  - id: docker-build
+    name: gcr.io/cloud-builders/docker
+    waitFor: ['test']
+    args:
+      - build
+      - --file=docker/Dockerfile
+      - --tag=${_IMAGE}:${SHORT_SHA}
+      - --tag=${_IMAGE}:latest
+      - --cache-from=${_IMAGE}:latest
+      - --build-arg=BUILDKIT_INLINE_CACHE=1
+      - .
+    env:
+      - DOCKER_BUILDKIT=1
+
+  # 4 — Push do Artifact Registry
+  - id: docker-push
+    name: gcr.io/cloud-builders/docker
+    waitFor: ['docker-build']
+    args: ['push', '--all-tags', '${_IMAGE}']
+
+  # 5 — Render Cloud Run service YAML z aktualnym SHA + apply
+  - id: deploy
+    name: gcr.io/google.com/cloudsdktool/cloud-sdk:slim
+    waitFor: ['docker-push']
+    entrypoint: bash
+    args:
+      - -ceu
+      - |
+        if [[ -z "${_CLOUD_RUN_SA}" ]]; then
+          echo "ERROR: _CLOUD_RUN_SA substitution is required" >&2
+          exit 1
+        fi
+        sed \
+          -e "s|__IMAGE__|${_IMAGE}:${SHORT_SHA}|g" \
+          -e "s|__PROJECT_ID__|${PROJECT_ID}|g" \
+          -e "s|__REGION__|${_REGION}|g" \
+          -e "s|__SERVICE__|${_SERVICE}|g" \
+          -e "s|__CLOUD_RUN_SA__|${_CLOUD_RUN_SA}|g" \
+          deploy/cloud-run-service.yaml > /tmp/service.rendered.yaml
+        gcloud run services replace /tmp/service.rendered.yaml \
+          --region=${_REGION} \
+          --platform=managed \
+          --quiet
+
+images:
+  - '${_IMAGE}:${SHORT_SHA}'
+  - '${_IMAGE}:latest'
+
+timeout: 1500s

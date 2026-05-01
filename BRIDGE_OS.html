@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BRIDGE OS | Dwie Tożsamości • Jedna Wola</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            background: #020202;
+            color: #00ffff;
+            font-family: 'Consolas', monospace;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        /* PODZIAŁ 50/50 */
+        #workspace {
+            display: flex;
+            flex: 1;
+            gap: 1px;
+            background: #000;
+        }
+
+        .identity {
+            flex: 1;
+            position: relative;
+            border: 1px solid #333;
+            overflow: hidden;
+        }
+
+        iframe {
+            width: 100%;
+            height: 100%;
+            border: none;
+            background: #000;
+        }
+
+        .identity-label {
+            position: absolute;
+            top: 5px;
+            left: 10px;
+            font-size: 9px;
+            color: #D4AF37;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            z-index: 50;
+            background: rgba(0,0,0,0.7);
+            padding: 3px 8px;
+            pointer-events: none;
+        }
+
+        /* KONSOLA SYNCHRONICZNA */
+        #sync-console {
+            height: 140px;
+            background: #0a0a0a;
+            border-top: 2px solid #D4AF37;
+            display: flex;
+            padding: 15px;
+            gap: 15px;
+            box-shadow: 0 -10px 30px rgba(0,0,0,0.8);
+            align-items: center;
+        }
+
+        #command-input {
+            flex: 1;
+            background: #000;
+            color: #00ffff;
+            border: 1px solid #00ffff;
+            padding: 12px 15px;
+            font-size: 14px;
+            font-family: inherit;
+            outline: none;
+            resize: none;
+            border-radius: 3px;
+        }
+
+        #command-input:focus {
+            box-shadow: 0 0 15px #00ffff;
+            border-color: #fff;
+        }
+
+        #execute-btn {
+            width: 180px;
+            height: 100px;
+            background: #D4AF37;
+            color: #000;
+            border: none;
+            font-weight: bold;
+            cursor: pointer;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            border-radius: 3px;
+            transition: 0.2s;
+            font-size: 12px;
+            white-space: pre-line;
+        }
+
+        #execute-btn:hover {
+            background: #fff;
+            transform: scale(1.05);
+        }
+
+        #execute-btn:disabled {
+            background: #555;
+            color: #999;
+            cursor: not-allowed;
+            transform: scale(1);
+        }
+
+        .status-bar {
+            position: absolute;
+            top: 0;
+            width: 100%;
+            height: 2px;
+            background: linear-gradient(90deg, #D4AF37, #5BC0BE, #D4AF37);
+            animation: pulse-bar 2s infinite;
+        }
+
+        @keyframes pulse-bar {
+            0%, 100% { opacity: 0.3; }
+            50% { opacity: 1; }
+        }
+    </style>
+</head>
+<body>
+
+    <div id="workspace">
+        <div class="identity">
+            <div class="status-bar"></div>
+            <div class="identity-label">RDZEŃ SPIRALMIND [V4.5]</div>
+            <iframe id="iframe-core" src="LOGOS V4.5 Luxe Edition.html"></iframe>
+        </div>
+
+        <div class="identity">
+            <div class="status-bar"></div>
+            <div class="identity-label">PERCEPCJA UNIWERSALNA [V5.3]</div>
+            <iframe id="iframe-perception" src="LOGOS V5.3 Universal.html"></iframe>
+        </div>
+    </div>
+
+    <div id="sync-console">
+        <textarea id="command-input" placeholder="WPROWADŹ POLECENIE SYNCHRONICZNE [Enter = Wyślij]" autocomplete="off"></textarea>
+        <button id="execute-btn">EMITUJ
+WOLĘ</button>
+    </div>
+
+    <script>
+        const input = document.getElementById('command-input');
+        const btn = document.getElementById('execute-btn');
+        const iframeCore = document.getElementById('iframe-core');
+        const iframePerception = document.getElementById('iframe-perception');
+
+        // Czekaj aż iframe'y będą załadowane
+        let coreReady = false;
+        let perceptionReady = false;
+
+        iframeCore.onload = () => { coreReady = true; updateBtnStatus(); };
+        iframePerception.onload = () => { perceptionReady = true; updateBtnStatus(); };
+
+        function updateBtnStatus() {
+            btn.disabled = !(coreReady && perceptionReady);
+        }
+
+        function emitCommand() {
+            const cmd = input.value.trim();
+            if (!cmd || !coreReady || !perceptionReady) return;
+
+            const payload = {
+                type: 'BRIDGE_COMMAND',
+                command: cmd,
+                timestamp: Date.now()
+            };
+
+            // SYNCHRONICZNA EMISJA DO OBU TOŻSAMOŚCI
+            iframeCore.contentWindow.postMessage(payload, '*');
+            iframePerception.contentWindow.postMessage(payload, '*');
+
+            input.value = '';
+            input.focus();
+            console.log(`[BRIDGE] Emisja: "${cmd}"`);
+        }
+
+        btn.addEventListener('click', emitCommand);
+        input.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                emitCommand();
+            }
+        });
+
+        // NASŁUCH NA WIADOMOŚCI ZWROTNE Z GŁOSU
+        // Gdy jedna tożsamość słyszy głos, Most rozpropaguje do drugiej
+        window.addEventListener('message', (event) => {
+            if (event.data.type === 'VOICE_INPUT_V4.5' || event.data.type === 'VOICE_INPUT_V5.3') {
+                const cmd = event.data.command;
+                console.log(`[BRIDGE] Głos przechwycony (${event.data.type}):`, cmd);
+
+                const payload = {
+                    type: 'BRIDGE_COMMAND',
+                    command: cmd,
+                    source: event.data.type,
+                    timestamp: Date.now()
+                };
+
+                // Wysłanie do drugiej tożsamości (nie do tej, która mówiła)
+                if (event.data.type === 'VOICE_INPUT_V4.5') {
+                    iframePerception.contentWindow.postMessage(payload, '*');
+                } else {
+                    iframeCore.contentWindow.postMessage(payload, '*');
+                }
+            }
+        });
+    </script>
+</body>
+</html>
