@@ -47,17 +47,20 @@ async function bootstrap() {
 
   installQuestResolverBridge();
 
-  server.listen(appConfig.port, '0.0.0.0', () => {
+  // 🔥 KLUCZOWA ZMIANA: port z ENV / 8080
+  const PORT = appConfig.port || Number(process.env.PORT) || 8080;
+
+  server.listen(PORT, '0.0.0.0', () => {
     eventBus.publish('system.boot', {
       service: SYSTEM_NAME,
       version: SYSTEM_VERSION,
       env: appConfig.env,
-      port: appConfig.port,
+      port: PORT,
       status: 'online'
     });
     console.log(
-      `\n  ${SYSTEM_NAME} v${SYSTEM_VERSION} active on port ${appConfig.port}\n`
-      + `  env=${appConfig.env}  ai=${appConfig.ai.provider}  coherence=P=1.0\n`
+      `\n  ${SYSTEM_NAME} v${SYSTEM_VERSION} active on port ${PORT}\n` +
+      `  env=${appConfig.env}  ai=${appConfig.ai.provider}  coherence=P=1.0\n`
     );
   });
 
@@ -68,7 +71,7 @@ async function bootstrap() {
     server.close(() => process.exit(0));
     setTimeout(() => process.exit(1), 5000).unref();
   };
-  process.on('SIGINT',  () => shutdown('SIGINT'));
+  process.on('SIGINT', () => shutdown('SIGINT'));
   process.on('SIGTERM', () => shutdown('SIGTERM'));
 }
 
