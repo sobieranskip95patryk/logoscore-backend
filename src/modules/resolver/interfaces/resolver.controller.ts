@@ -8,6 +8,14 @@ import {
 } from '../application/correlate-action.usecase';
 import { GoalStatus } from '../domain/project-goal.entity';
 
+async function canAccessGoal(req: AuthenticatedRequest, goalId: string): Promise<boolean> {
+  if (!req.user) return false;
+  const goal = await goalsRepository.get(goalId);
+  if (!goal) return false;
+  if (req.user.role === 'admin' || req.user.role === 'system') return true;
+  return goal.uid === req.user.uid;
+}
+
 export class ResolverController {
   static async listGoals(req: AuthenticatedRequest, res: Response, next: NextFunction) {
     try {
@@ -32,6 +40,11 @@ export class ResolverController {
 
   static async reembedGoal(req: AuthenticatedRequest, res: Response, next: NextFunction) {
     try {
+      const canAccess = await canAccessGoal(req, req.params.goalId);
+      if (!canAccess) {
+        res.status(404).json({ error: 'goal_not_found' });
+        return;
+      }
       const goal = await reembedGoalUseCase(req.params.goalId);
       if (!goal) {
         res.status(404).json({ error: 'goal_not_found' });
@@ -48,6 +61,11 @@ export class ResolverController {
 
   static async deleteGoal(req: AuthenticatedRequest, res: Response, next: NextFunction) {
     try {
+      const canAccess = await canAccessGoal(req, req.params.goalId);
+      if (!canAccess) {
+        res.status(404).json({ error: 'goal_not_found' });
+        return;
+      }
       const ok = await goalsRepository.delete(req.params.goalId);
       if (!ok) {
         res.status(404).json({ error: 'goal_not_found' });
