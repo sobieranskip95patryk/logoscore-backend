@@ -16,3 +16,5 @@ serviceAccount*.json
 # IDE
 .idea/
 .vscode/
+
+external/

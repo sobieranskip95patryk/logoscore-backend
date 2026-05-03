@@ -6,6 +6,7 @@ import { userRouter }      from '../modules/user/interfaces/user.routes';
 import { inventoryRouter } from '../modules/inventory/interfaces/inventory.routes';
 import { resolverRouter }  from '../modules/resolver/interfaces/resolver.routes';
 import { meRouter, adminRouter } from '../modules/security/interfaces/security.routes';
+import { migiRouter } from '../modules/migi/interfaces/migi.routes';
 import { economizerRouter } from '../infrastructure/ai/economizer/economizer.routes';
 import { pingPostgres, isPgvectorReady } from '../infrastructure/database/postgres';
 import { pingMongo, isMongoReady } from '../infrastructure/database/mongo';
@@ -76,6 +77,7 @@ export function registerRoutes(app: Express): void {
   api.use('/me',        meRouter);
   api.use('/admin',     adminRouter);
   api.use('/admin/economizer', economizerRouter);
+  api.use('/admin/migi', migiRouter);
 
   app.use('/api', api);
 

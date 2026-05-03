@@ -41,7 +41,7 @@ export const appConfig = {
 
   ai: {
     provider: (process.env.AI_PROVIDER || 'gemini').toLowerCase(),
-    apiKey: process.env.AI_API_KEY || '',
+    apiKey: process.env.AI_API_KEY || process.env.GEMINI_API_KEY || '',
     modelAnalyze: process.env.AI_MODEL_ANALYZE || 'gemini-1.5-flash',
     modelTts: process.env.AI_MODEL_TTS || 'gemini-2.5-flash-preview-tts',
     modelEmbed: process.env.AI_MODEL_EMBED || 'text-embedding-004',
@@ -89,6 +89,14 @@ export const appConfig = {
     serviceName: process.env.OTEL_SERVICE_NAME || 'mtaquestwebsidex-backend',
     sampleRate: Number(process.env.OTEL_SAMPLE_RATE || 1.0),
     prometheusEnabled: (process.env.PROMETHEUS_ENABLED || 'false').toLowerCase() === 'true'
+  },
+
+  migi: {
+    enabled: (process.env.MIGI_ENABLED || 'false').toLowerCase() === 'true',
+    repoDir: process.env.MIGI_REPO_DIR || 'external/MIGI_7G-Dashboard-Kalibracyjny-EQ-Bench-3-Integration',
+    pythonCmd: process.env.MIGI_PYTHON_CMD || 'python',
+    healthPort: Number(process.env.MIGI_HEALTH_PORT || 18080),
+    telemetryPort: Number(process.env.MIGI_TELEMETRY_PORT || 8765)
   }
 } as const;
 
