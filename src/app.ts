@@ -34,6 +34,9 @@ export function createApp(): Express {
   assertProductionSafety();
 
   const app = express();
+  app.get('/health', (req, res) => {
+  res.status(200).json({ status: 'ok' });
+});
   // Trust pierwszy proxy (Cloud Run / nginx / Cloudflare) — req.ip oddaje X-Forwarded-For[0].
   app.set('trust proxy', 1);
 
