@@ -35,7 +35,7 @@ export const questRules = {
     if (parent.state === 'REWARDED' || parent.state === 'FAILED') {
       throw new Error(`quest ${parent.id} is sealed (${parent.state}), cannot branch`);
     }
-    if (branchKey && !/^[A-Za-z0-9_\-]{1,64}$/.test(branchKey)) {
+    if (branchKey && !/^[A-Za-z0-9_-]{1,64}$/.test(branchKey)) {
       throw new Error(`invalid branchKey: ${branchKey}`);
     }
   },

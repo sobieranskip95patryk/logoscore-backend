@@ -1,4 +1,4 @@
-import { Request, Response, NextFunction } from 'express';
+import { Response, NextFunction } from 'express';
 import { startQuestUseCase } from '../application/start-quest.usecase';
 import { rewardQuestUseCase } from '../application/reward-quest.usecase';
 import { completeQuestUseCase } from '../application/complete-quest.usecase';

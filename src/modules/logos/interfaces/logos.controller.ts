@@ -1,4 +1,4 @@
-import { Request, Response, NextFunction } from 'express';
+import { Response, NextFunction } from 'express';
 import { analyzeQueryUseCase } from '../application/analyze-query.usecase';
 import { synthesizeSpeechUseCase } from '../application/synthesize-speech.usecase';
 import { AuthenticatedRequest } from '../../../shared/middleware/auth.middleware';

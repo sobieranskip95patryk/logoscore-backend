@@ -31,7 +31,7 @@ export const branchQuestSchema = z.object({
   userId: z.string().min(1).optional(),
   parentId: z.string().min(1),
   title: z.string().min(1).max(256),
-  branchKey: z.string().regex(/^[A-Za-z0-9_\-]{1,64}$/).optional().nullable(),
+  branchKey: z.string().regex(/^[A-Za-z0-9_-]{1,64}$/).optional().nullable(),
   description: z.string().max(8_000).optional(),
   acceptanceCriteria: z.string().max(8_000).optional()
 });

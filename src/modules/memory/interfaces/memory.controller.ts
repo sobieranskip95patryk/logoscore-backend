@@ -1,4 +1,4 @@
-import { Request, Response, NextFunction } from 'express';
+import { Response, NextFunction } from 'express';
 import { intentMapRepository } from '../infrastructure/intent-map.repository';
 import { embeddingRepository } from '../infrastructure/embedding.repository';
 import { eventBus } from '../../../core/events/event-bus';
